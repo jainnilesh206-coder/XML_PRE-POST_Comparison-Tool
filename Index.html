@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>XML Pre/Post Comparison Tool (Tags + GPL)</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f4f6fb;
+      color: #1b1f23;
+    }
+    .app {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 16px 20px 40px;
+    }
+    h1 {
+      font-size: 22px;
+      margin: 0 0 8px;
+      color: #004c99;
+    }
+    .sub {
+      font-size: 12px;
+      color: #555;
+      margin-bottom: 16px;
+    }
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 12px;
+      align-items: center;
+    }
+    .card {
+      background: #ffffff;
+      border-radius: 8px;
+      padding: 10px 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      font-size: 12px;
+    }
+    .card h2 {
+      margin: 0 0 6px;
+      font-size: 13px;
+      color: #004c99;
+    }
+    .file-label {
+      display: inline-block;
+      margin-right: 8px;
+      font-weight: 600;
+    }
+    input[type="file"] {
+      font-size: 11px;
+    }
+    button {
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 4px;
+      border: none;
+      cursor: pointer;
+      background: #004c99;
+      color: #ffffff;
+    }
+    button.secondary {
+      background: #e4e7ec;
+      color: #1b1f23;
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+    .status {
+      font-size: 11px;
+      color: #555;
+      margin-top: 4px;
+      white-space: pre-line;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+      margin-top: 10px;
+    }
+    th, td {
+      padding: 4px 6px;
+      border-bottom: 1px solid #e4e7ec;
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      background: #f0f3fa;
+      font-weight: 600;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    .value-current {
+      color: #006644;
+    }
+    .value-pre {
+      color: #9b1c31;
+    }
+    .status-equal {
+      color: #00875a;
+      font-weight: 600;
+    }
+    .status-diff {
+      color: #bf2600;
+      font-weight: 600;
+    }
+    .status-missing-pre {
+      color: #bf2600;
+      font-weight: 600;
+    }
+    .status-missing-cur {
+      color: #bf2600;
+      font-weight: 600;
+    }
+    .table-container {
+      background: #ffffff;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+      padding: 8px;
+      max-height: 540px;
+      overflow: auto;
+    }
+    .debug-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 8px;
+      font-size: 11px;
+    }
+    .debug-item {
+      background: #ffffff;
+      border-radius: 6px;
+      padding: 6px 8px;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+    }
+    .debug-label {
+      color: #777;
+      margin-bottom: 2px;
+    }
+    .debug-value {
+      font-weight: 600;
+    }
+    .file-name {
+      font-size: 11px;
+      color: #333;
+      margin-top: 4px;
+    }
+    .filters {
+      font-size: 11px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+    .filters label {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+    }
+    .tag-cell {
+      font-weight: 600;
+      color: #004c99;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+  <h1>XML Pre/Post Comparison Tool</h1>
+  <div class="sub">
+    Site‑independent comparison for Nokia RAML XML.<br>
+    All MO classes included. Parameters have classification Tag and GPL flag.
+  </div>
+
+  <div class="row">
+    <div class="card">
+      <h2>Current XML</h2>
+      <label class="file-label">Current:</label>
+      <input type="file" id="curFile" accept=".xml">
+      <div id="curFileName" class="file-name">No file selected</div>
+    </div>
+
+    <div class="card">
+      <h2>Pre XML</h2>
+      <label class="file-label">Pre:</label>
+      <input type="file" id="preFile" accept=".xml">
+      <div id="preFileName" class="file-name">No file selected</div>
+    </div>
+
+    <div class="card">
+      <h2>Actions</h2>
+      <button id="compareBtn" disabled>Compare XML</button>
+      <button id="downloadBtn" class="secondary" disabled>Download CSV</button>
+      <button id="demoBtn" class="secondary">Load Demo</button>
+      <div id="status" class="status">Waiting for files</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Notes</h2>
+    <div style="font-size:11px; color:#444;">
+      <ul style="margin:4px 0 0 16px; padding:0;">
+        <li>MRBTS / LNBTS IDs are normalized before comparison.</li>
+        <li>Match key = simple MO class + normalized distName + parameter name.</li>
+        <li>Tag column comes from your Category sheet or from generic rules (Timer, Power, HO, etc.).</li>
+        <li>GPL column shows “GPL” for all parameters listed in your GPL sheets.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Debug counters</h2>
+    <div class="debug-grid">
+      <div class="debug-item">
+        <div class="debug-label">Current MOs parsed</div>
+        <div class="debug-value" id="curMosCount">0</div>
+      </div>
+      <div class="debug-item">
+        <div class="debug-label">Pre MOs parsed</div>
+        <div class="debug-value" id="preMosCount">0</div>
+      </div>
+      <div class="debug-item">
+        <div class="debug-label">Param rows total</div>
+        <div class="debug-value" id="rowsTotal">0</div>
+      </div>
+      <div class="debug-item">
+        <div class="debug-label">Matched keys</div>
+        <div class="debug-value" id="matchedCount">0</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Filters</h2>
+    <div class="filters">
+      <label><input type="checkbox" id="showOnlyDiff"> Show only differences / missing</label>
+      <label><input type="checkbox" id="hideEqual"> Hide exact matches</label>
+      <label><input type="checkbox" id="hideMissingPre"> Hide rows missing in Pre</label>
+      <label><input type="checkbox" id="hideMissingCur"> Hide rows missing in Current</label>
+    </div>
+  </div>
+
+  <div class="table-container">
+    <table id="resultTable">
+      <thead>
+      <tr>
+        <th>Site</th>
+        <th>Class</th>
+        <th>Tag</th>
+        <th>GPL</th>
+        <th>Parameter</th>
+        <th>Current Value</th>
+        <th>Pre Value</th>
+        <th>Status</th>
+        <th>Current DistName</th>
+        <th>Pre DistName</th>
+      </tr>
+      </thead>
+      <tbody id="resultBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  // ========= Utility =========
+
+  function readFileAsText(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = e => resolve(e.target.result);
+      reader.onerror = e => reject(e);
+      reader.readAsText(file);
+    });
+  }
+
+  function parseXmlString(xmlStr) {
+    const parser = new DOMParser();
+    return parser.parseFromString(xmlStr, "application/xml");
+  }
+
+  function arrayFromNodeList(nodeList) {
+    const arr = [];
+    for (let i = 0; i < nodeList.length; i++) arr.push(nodeList[i]);
+    return arr;
+  }
+
+  function getText(node) {
+    return (node && node.textContent) ? node.textContent.trim() : "";
+  }
+
+  // ========= Normalization =========
+
+  function normalizeDistName(dn) {
+    if (!dn) return "";
+    const parts = dn.split("/");
+    const normParts = parts.map(p => {
+      const m = p.match(/^([A-Z0-9]+)-(\d+)(.*)$/);
+      if (!m) return p;
+      const prefix = m[1];
+      const rest = m[3] || "";
+      if (prefix === "MRBTS" || prefix === "LNBTS" || prefix === "NRBTS" || prefix === "ENB") {
+        return prefix + "-*" + rest;
+      }
+      return p;
+    });
+    return normParts.join("/");
+  }
+
+  function simpleClassName(classAttr) {
+    if (!classAttr) return "";
+    if (classAttr.includes(":") && !classAttr.includes(".")) {
+      const parts = classAttr.split(":");
+      return parts[parts.length - 1];
+    }
+    const parts = classAttr.split(".");
+    return parts[parts.length - 1];
+  }
+
+  // ========= Parameter flattening =========
+
+  function flattenManagedObject(moElem) {
+    const classAttr = moElem.getAttribute("class") || "";
+    const sClass = simpleClassName(classAttr);
+    const dn = moElem.getAttribute("distName") || "";
+    const normDn = normalizeDistName(dn);
+
+    const params = [];
+
+    const pElems = arrayFromNodeList(moElem.getElementsByTagName("p"))
+      .filter(p => p.parentElement === moElem);
+    pElems.forEach(p => {
+      const name = p.getAttribute("name");
+      if (!name) return;
+      const value = getText(p);
+      params.push({ param: name, value });
+    });
+
+    const listElems = arrayFromNodeList(moElem.getElementsByTagName("list"))
+      .filter(list => list.parentElement === moElem);
+    listElems.forEach(list => {
+      const listName = list.getAttribute("name") || "list";
+      const childItems = arrayFromNodeList(list.children)
+        .filter(c => c.tagName === "item");
+      if (childItems.length > 0) {
+        childItems.forEach((item, idx) => {
+          const ps = arrayFromNodeList(item.getElementsByTagName("p"))
+            .filter(p => p.parentElement === item);
+          ps.forEach(p => {
+            const pn = p.getAttribute("name");
+            if (!pn) return;
+            const value = getText(p);
+            const key = listName + "[" + idx + "]." + pn;
+            params.push({ param: key, value });
+          });
+        });
+      } else {
+        const ps = arrayFromNodeList(list.getElementsByTagName("p"))
+          .filter(p => p.parentElement === list);
+        ps.forEach((p, idx) => {
+          const value = getText(p);
+          const key = listName + "[" + idx + "]";
+          params.push({ param: key, value });
+        });
+      }
+    });
+
+    return {
+      classAttr,
+      simpleClass: sClass,
+      distName: dn,
+      normDistName: normDn,
+      params
+    };
+  }
+
+  // ========= Explicit Tag + GPL map from your sheets =========
+
+  const explicitTagGplMap = {
+    // From first GPL list (example subset; extend as needed)
+    "energySavingMode":                  { tag: "PowerSaving", gpl: true },
+    "actB1ExtMeasNR":                    { tag: "CFRA",        gpl: true },
+    "actCAggrLteNrDualConnectivity":     { tag: "CA",          gpl: true },
+    "actEnDcLteDlMimoOptBcSel":          { tag: "CA",          gpl: true },
+    "actEnDcLteDlTputBcSel":             { tag: "CA",          gpl: true },
+    "actEnDcNrFeatSetIdBcSel":           { tag: "CA",          gpl: true },
+    "actEndcAutoX2Setup":                { tag: "ANR",         gpl: true },
+    "actLteNrDualConnectivity":          { tag: "NSA Activation", gpl: true },
+    "actMeasGapCoordEnDc":               { tag: "B1 Based Addition", gpl: true },
+    "actMeasGapIfEnDc":                  { tag: "B1 Based Addition", gpl: true },
+    "primPlmnUpperLayerIndicationR15":   { tag: "5G Icon",     gpl: true },
+    "t300":                              { tag: "Timer",       gpl: true },
+    "t301":                              { tag: "RRC Reestablishment", gpl: true },
+    "t310":                              { tag: "RRC Reestablishment", gpl: true },
+    "t311":                              { tag: "RRC Reestablishment", gpl: true },
+    "cellBarred":                        { tag: "Access",      gpl: true },
+    "n310":                              { tag: "RRC Reestablishment", gpl: true },
+    "n311":                              { tag: "RRC Reestablishment", gpl: true },
+
+    // From second sheet (Category → Tag, all GPL)
+    "dynTriggerLteNrDcConfList[0].method":          { tag: "Buffer Based SCG Addition", gpl: true },
+
+    "beamSet[0].rightEdgeAngle":                    { tag: "Beamset",                   gpl: true },
+    "beamSet[0].leftEdgeAngle":                     { tag: "Beamset",                   gpl: true },
+    "beamSet[0].basicBeamSet":                      { tag: "Beamset",                   gpl: true },
+
+    "qciTab5[0].lteNrDualConnectSupport":           { tag: "NSA Activation",            gpl: true },
+    "qciTab5[0].arpEnDcMask":                       { tag: "NSA Activation",            gpl: true },
+
+    "pdcpProf1001[0].pdcpProfileId":                { tag: "NSA Activation",            gpl: true },
+    "pdcpProf1001[0].snSizeDl":                     { tag: "NSA Activation",            gpl: true },
+    "pdcpProf1001[0].snSizeUl":                     { tag: "NSA Activation",            gpl: true },
+    "pdcpProf1001[0].statusRepReq":                 { tag: "NSA Activation",            gpl: true },
+    "pdcpProf1001[0].tDiscard":                     { tag: "NSA Activation",            gpl: true },
+
+    "ulPowerControlCommon[0].p0NominalPusch":       { tag: "Power Control",             gpl: true },
+    "ulPowerControlCommon[0].actUlOpenLoopPwrCtrl": { tag: "Power Control",             gpl: true },
+    "ulPowerControlCommon[0].alpha":                { tag: "Power Control",             gpl: true },
+    "ulPowerControlCommon[0].p0NominalPucch":       { tag: "Power Control",             gpl: true },
+    "ulPowerControlCommon[0].p0NominalPucchF1F3":   { tag: "Power Control",             gpl: true },
+    "ulPowerControlCommon[0].pucchF1DeltaF":        { tag: "Power Control",             gpl: true },
+    "ulPowerControlCommon[0].pucchF3DeltaF":        { tag: "Power Control",             gpl: true },
+    "ulPowerControlCommon[0].p0NominalSrs":         { tag: "Power Control",             gpl: true },
+    "ulPowerControlCommon[0].alphaSrs":             { tag: "Power Control",             gpl: true },
+
+    "periodicCsiAcquisition[0].csiReportPeriodicity": { tag: "CSI RS",                  gpl: true },
+    "periodicCsiAcquisition[0].maxCsirsNumber":       { tag: "CSI RS",                  gpl: true },
+    "beamSet[0].nrBtsBeamRefinementP2":              { tag: "CSI RS",                  gpl: true },
+    "periodicCsiAcquisition[0].csirsNumberWithinReportPeriod_Set1": { tag: "CSI RS",   gpl: true },
+    "csirsBeamMgmt[0].csirsBmMgmtDensity":           { tag: "CSI RS",                  gpl: true },
+    "csirsBeamMgmt[0].csirsBmMgmtReIndex":           { tag: "CSI RS",                  gpl: true },
+    "periodicCsiAcquisition[0].csirsPower":          { tag: "CSI RS",                  gpl: true },
+    "csirsBeamMgmt[0].csirsBmMgmtSubband":           { tag: "CSI RS",                  gpl: true },
+    "csirsForTracking[0].rbAllocation":              { tag: "CSI RS",                  gpl: true },
+    "csirsForTracking[0].startRB":                   { tag: "CSI RS",                  gpl: true },
+    "csirsForTracking[0].firstRE":                   { tag: "CSI RS",                  gpl: true },
+    "csirsForTracking[0].csirsTrackingPeriod":       { tag: "CSI RS",                  gpl: true },
+
+    "nsaDrbParam[0].actPrioritizeX2AfterInactivity":  { tag: "Flow Control",           gpl: true },
+
+    "dynamicAggregationLevelSet[0].aggregationLevelList": { tag: "PDCCH",              gpl: true },
+    "dynamicAggregationLevelSet[0].cqiDciCssAl1":        { tag: "PDCCH",              gpl: true },
+    "dynamicAggregationLevelSet[0].cqiDciCssAl2":        { tag: "PDCCH",              gpl: true },
+    "dynamicAggregationLevelSet[0].cqiDciCssAl4":        { tag: "PDCCH",              gpl: true },
+    "dynamicAggregationLevelSet[0].cqiDciCssAl8":        { tag: "PDCCH",              gpl: true },
+    "dynamicAggregationLevelSet[0].cqiDciCssAl16":       { tag: "PDCCH",              gpl: true },
+
+    "tddFrameStructure[0].tdLteUlDlConfig":          { tag: "Basic Parameters",        gpl: true },
+    "tddFrameStructure[0].frameStructureType":       { tag: "Basic Parameters",        gpl: true },
+    "tddFrameStructure[0].ulDlDataSlotRatio":        { tag: "Basic Parameters",        gpl: true },
+    "tddFrameStructure[0].guardPeriodLength":        { tag: "Basic Parameters",        gpl: true },
+
+    "anrNrParamList[0].anrDefRelDcAllowed":          { tag: "ANR",                     gpl: true },
+    "anrNrParamList[0].frqNrCarSelect":              { tag: "ANR",                     gpl: true },
+    "anrNrParamList[0].gNBIdLength":                 { tag: "ANR",                     gpl: true },
+    "anrNrParamList[0].paramMeasConfId":             { tag: "ANR",                     gpl: true },
+    "anrNrParamList[0].paramPlmnId":                 { tag: "ANR",                     gpl: true },
+    "anrNrMeasConfList[0].paramMeasConfId":          { tag: "ANR",                     gpl: true },
+    "anrNrMeasConfList[0].thresholdNrRsrp":          { tag: "ANR",                     gpl: true },
+    "anrNrMeasConfList[0].thresholdNrRsrq":          { tag: "ANR",                     gpl: true },
+    "anrNrParamPlmnList[0].mcc":                     { tag: "ANR",                     gpl: true },
+    "anrNrParamPlmnList[0].mnc":                     { tag: "ANR",                     gpl: true },
+    "anrNrParamPlmnList[0].mncLength":               { tag: "ANR",                     gpl: true },
+    "anrNrParamPlmnList[0].paramPlmnId":             { tag: "ANR",                     gpl: true },
+
+    "drxProfile105[0].drxInactivityT":               { tag: "ANR",                     gpl: true },
+    "drxProfile105[0].drxLongCycle":                 { tag: "ANR",                     gpl: true },
+    "drxProfile105[0].drxOnDuratT":                  { tag: "ANR",                     gpl: true },
+    "drxProfile105[0].drxProfileIndex":              { tag: "ANR",                     gpl: true },
+    "drxProfile105[0].drxProfilePriority":           { tag: "ANR",                     gpl: true },
+    "drxProfile105[0].drxRetransT":                  { tag: "ANR",                     gpl: true },
+
+    "beamSet[0].upperEdgeAngle":                     { tag: "SRS BF Package",          gpl: true },
+    "beamSet[0].lowerEdgeAngle":                     { tag: "SRS BF Package",          gpl: true },
+    "srsForBeamMgmt[0].bSRS":                        { tag: "SRS BF Package",          gpl: true },
+    "srsForBeamMgmt[0].cSRS":                        { tag: "SRS BF Package",          gpl: true },
+    "srsForBeamMgmt[0].srsPowerThresholdForDlBm":    { tag: "SRS BF Package",          gpl: true },
+
+    "adjustPrachThresholdOffset":                    { tag: "RACH",                    gpl: true },
+
+    "clpcPusch[0].maxTargSinr":                      { tag: "Power Control",           gpl: true },
+    "clpcPusch[0].minTargSinr":                      { tag: "Power Control",           gpl: true },
+    "clpcPusch[0].targetSinrOffset":                 { tag: "Power Control",           gpl: true },
+
+    "cfgPlmnId[0].mcc":                              { tag: "NRPMQAP",                 gpl: true },
+    "cfgPlmnId[0].mnc":                              { tag: "NRPMQAP",                 gpl: true },
+    "cfgPlmnId[0].mncLength":                        { tag: "NRPMQAP",                 gpl: true },
+
+    "xxFlowControlProfForCu[0].dddsPeriodXx":        { tag: "Flow Control",            gpl: true },
+    "xxFlowControlProfForCu[0].maxTransferDelayXx":  { tag: "Flow Control",            gpl: true },
+    "xxFlowControlProfForCu[0].minThFlowCtrlXx":     { tag: "Flow Control",            gpl: true },
+
+    "powerSavingBwpSwitching[0].dlBufferEmptyRatioFromPsBwp": { tag: "UE Power Saving BWP", gpl: true },
+    "powerSavingBwpSwitching[0].dlBufferEmptyRatioToPsBwp":   { tag: "UE Power Saving BWP", gpl: true },
+    "powerSavingBwpSwitching[0].dlRateThresholdFromPsBwp":    { tag: "UE Power Saving BWP", gpl: true },
+    "powerSavingBwpSwitching[0].dlRateThresholdToPsBwp":      { tag: "UE Power Saving BWP", gpl: true },
+    "powerSavingBwpSwitching[0].measurementDurationFromPsBwp": { tag: "UE Power Saving BWP", gpl: true },
+    "powerSavingBwpSwitching[0].measurementDurationToPsBwp":   { tag: "UE Power Saving BWP", gpl: true },
+    "powerSavingBwpSwitching[0].ulBufferEmptyRatioFromPsBwp":  { tag: "UE Power Saving BWP", gpl: true },
+    "powerSavingBwpSwitching[0].ulBufferEmptyRatioToPsBwp":    { tag: "UE Power Saving BWP", gpl: true },
+
+    "sibSchedulingList[0].sibPeriodicity":           { tag: "System Information",      gpl: true },
+    "sibSchedulingList[0].sibType":                  { tag: "System Information",      gpl: true },
+
+    "fiveqiValueList[0]":                            { tag: "5QI",                     gpl: true },
+
+    "drxInactivityTimer":                            { tag: "ANR-DRX Profile",         gpl: true },
+
+    "snssaiList[0].snssaiDN":                        { tag: "Slicing",                 gpl: true },
+    "cfgSliceId[0].sd":                              { tag: "Slicing",                 gpl: true },
+    "cfgSliceId[0].sst":                             { tag: "Slicing",                 gpl: true },
+    "schedulerParams[0].maxQuota":                   { tag: "Slicing",                 gpl: true },
+    "schedulerParams[0].minQuota":                   { tag: "Slicing",                 gpl: true },
+    "nrPlmnDN":                                      { tag: "Slicing",                 gpl: true }
+  };
+
+  function isGplParam(paramName) {
+    if (!paramName) return false;
+    return !!explicitTagGplMap[paramName];
+  }
+
+  // Optional extra map for generic tags (beyond explicit list)
+  const paramTagMap = {
+    "qRxLevMin": "Coverage",
+    "qQualMin": "Coverage"
+    // keep or extend as you like
+  };
+
+  function classifyParam(paramName) {
+    if (!paramName) return "";
+    if (explicitTagGplMap[paramName]) {
+      return explicitTagGplMap[paramName].tag || "";
+    }
+    if (paramTagMap[paramName]) {
+      return paramTagMap[paramName];
+    }
+
+    const p = paramName.toLowerCase();
+
+    if (p.includes("time") || p.includes("timer")) return "Timer";
+
+    if (p.includes("pmax") || p.includes("txp") || p.includes("power")) return "Power";
+    if (p.includes("qrxlevmin") || p.includes("qqualmin")) return "Coverage";
+    if (p.includes("search") || p.includes("threshservinglow") ||
+        p.includes("threshxhigh") || p.includes("threshxlow")) return "CellSel";
+    if (p.includes("anr")) return "ANR";
+    if (p.includes("drx")) return "DRX";
+    if (p.includes("ho") || p.includes("handover") ||
+        p.includes("ttt") || p.includes("offsetcell") || p.includes("offsetfreq")) return "HO";
+    if (p.includes("qci") || p.includes("qos") ||
+        p.includes("prio") || p.includes("priority")) return "QoS";
+    if (p.includes("pm") || p.startsWith("pm")) return "PM";
+    if (p.includes("ntp") || p.includes("clock") || p.includes("timing")) return "Timing";
+    if (p.includes("tls") || p.includes("password") ||
+        p.includes("auth") || p.includes("cipher")) return "Security";
+    if (p.includes("ipaddr") || p.includes("ipv4") || p.includes("dscp") ||
+        p.includes("gtpu") || p.includes("sctp") || p.includes("trsnw")) return "IP";
+
+    return "";
+  }
+
+  // ========= include all MO classes =========
+
+  function isMoAllowed(simpleClass) {
+    return true;
+  }
+
+  function buildParamMap(moList) {
+    const map = new Map();
+    moList.forEach(mo => {
+      if (!isMoAllowed(mo.simpleClass)) return;
+      mo.params.forEach(p => {
+        const key = mo.simpleClass + "|" + mo.normDistName + "|" + p.param;
+        if (!map.has(key)) map.set(key, []);
+        map.get(key).push({
+          value: p.value,
+          distName: mo.distName,
+          simpleClass: mo.simpleClass
+        });
+      });
+    });
+    return map;
+  }
+
+  function compareXml(curXmlStr, preXmlStr, debugOut) {
+    const curDoc = parseXmlString(curXmlStr);
+    const preDoc = parseXmlString(preXmlStr);
+
+    const curMoElems = arrayFromNodeList(curDoc.getElementsByTagName("managedObject"));
+    const preMoElems = arrayFromNodeList(preDoc.getElementsByTagName("managedObject"));
+
+    const curMos = curMoElems.map(flattenManagedObject);
+    const preMos = preMoElems.map(flattenManagedObject);
+
+    debugOut.curMosCount = curMos.length;
+    debugOut.preMosCount = preMos.length;
+
+    const curMap = buildParamMap(curMos);
+    const preMap = buildParamMap(preMos);
+
+    const rows = [];
+    let matchedKeys = 0;
+
+    const allKeys = new Set();
+    curMap.forEach((_, k) => allKeys.add(k));
+    preMap.forEach((_, k) => allKeys.add(k));
+
+    allKeys.forEach(key => {
+      const curEntries = curMap.get(key) || [];
+      const preEntries = preMap.get(key) || [];
+      const curVal = curEntries.length ? curEntries[0] : null;
+      const preVal = preEntries.length ? preEntries[0] : null;
+
+      const [simpleClass, normDn, paramName] = key.split("|");
+      const siteLabel = normDn;
+      const curValue = curVal ? curVal.value : "";
+      const preValue = preVal ? preVal.value : "";
+
+      let status = "";
+      if (curVal && preVal) {
+        matchedKeys++;
+        status = (curValue === preValue) ? "EQUAL" : "DIFF";
+      } else if (curVal && !preVal) {
+        status = "MISSING_PRE";
+      } else if (!curVal && preVal) {
+        status = "MISSING_CUR";
+      } else {
+        status = "UNKNOWN";
+      }
+
+      const tag = classifyParam(paramName);
+      const gpl = isGplParam(paramName);
+
+      rows.push({
+        site: siteLabel,
+        simpleClass,
+        paramName,
+        tag,
+        gpl,
+        curValue,
+        preValue,
+        status,
+        curDistName: curVal ? curVal.distName : "",
+        preDistName: preVal ? preVal.distName : ""
+      });
+    });
+
+    debugOut.rowsTotal = rows.length;
+    debugOut.matchedCount = matchedKeys;
+
+    return rows;
+  }
+
+  // ========= UI wiring =========
+
+  const curInput = document.getElementById("curFile");
+  const preInput = document.getElementById("preFile");
+  const compareBtn = document.getElementById("compareBtn");
+  const downloadBtn = document.getElementById("downloadBtn");
+  const demoBtn = document.getElementById("demoBtn");
+
+  const curFileNameEl = document.getElementById("curFileName");
+  const preFileNameEl = document.getElementById("preFileName");
+
+  const statusEl = document.getElementById("status");
+  const resultBody = document.getElementById("resultBody");
+
+  const curMosCountEl = document.getElementById("curMosCount");
+  const preMosCountEl = document.getElementById("preMosCount");
+  const rowsTotalEl = document.getElementById("rowsTotal");
+  const matchedCountEl = document.getElementById("matchedCount");
+
+  const showOnlyDiffEl = document.getElementById("showOnlyDiff");
+  const hideEqualEl = document.getElementById("hideEqual");
+  const hideMissingPreEl = document.getElementById("hideMissingPre");
+  const hideMissingCurEl = document.getElementById("hideMissingCur");
+
+  let curXmlText = "";
+  let preXmlText = "";
+  let allRows = [];
+
+  function updateButtons() {
+    const ready = !!curXmlText && !!preXmlText;
+    compareBtn.disabled = !ready;
+    downloadBtn.disabled = !allRows.length;
+  }
+
+  curInput.addEventListener("change", async () => {
+    const file = curInput.files[0];
+    if (!file) {
+      curXmlText = "";
+      curFileNameEl.textContent = "No file selected";
+    } else {
+      curFileNameEl.textContent = file.name;
+      curXmlText = await readFileAsText(file);
+    }
+    statusEl.textContent = "Ready if both files loaded.";
+    updateButtons();
+  });
+
+  preInput.addEventListener("change", async () => {
+    const file = preInput.files[0];
+    if (!file) {
+      preXmlText = "";
+      preFileNameEl.textContent = "No file selected";
+    } else {
+      preFileNameEl.textContent = file.name;
+      preXmlText = await readFileAsText(file);
+    }
+    statusEl.textContent = "Ready if both files loaded.";
+    updateButtons();
+  });
+
+  function renderTable(rows) {
+    const onlyDiff = showOnlyDiffEl.checked;
+    const hideEqual = hideEqualEl.checked;
+    const hideMissingPre = hideMissingPreEl.checked;
+    const hideMissingCur = hideMissingCurEl.checked;
+
+    resultBody.innerHTML = "";
+
+    const filtered = rows.filter(r => {
+      if (onlyDiff && r.status === "EQUAL") return false;
+      if (hideEqual && r.status === "EQUAL") return false;
+      if (hideMissingPre && r.status === "MISSING_PRE") return false;
+      if (hideMissingCur && r.status === "MISSING_CUR") return false;
+      return true;
+    });
+
+    filtered.sort((a, b) => {
+      if (a.site < b.site) return -1;
+      if (a.site > b.site) return 1;
+      if (a.simpleClass < b.simpleClass) return -1;
+      if (a.simpleClass > b.simpleClass) return 1;
+      if (a.paramName < b.paramName) return -1;
+      if (a.paramName > b.paramName) return 1;
+      return 0;
+    });
+
+    filtered.forEach(r => {
+      const tr = document.createElement("tr");
+
+      const tdSite = document.createElement("td");
+      tdSite.textContent = r.site;
+      tr.appendChild(tdSite);
+
+      const tdClass = document.createElement("td");
+      tdClass.textContent = r.simpleClass;
+      tr.appendChild(tdClass);
+
+      const tdTag = document.createElement("td");
+      tdTag.textContent = r.tag || "";
+      tdTag.className = "tag-cell";
+      tr.appendChild(tdTag);
+
+      const tdGpl = document.createElement("td");
+      tdGpl.textContent = r.gpl ? "GPL" : "";
+      tdGpl.className = "tag-cell";
+      tr.appendChild(tdGpl);
+
+      const tdParam = document.createElement("td");
+      tdParam.textContent = r.paramName;
+      tr.appendChild(tdParam);
+
+      const tdCurVal = document.createElement("td");
+      tdCurVal.textContent = r.curValue;
+      tdCurVal.className = "value-current";
+      tr.appendChild(tdCurVal);
+
+      const tdPreVal = document.createElement("td");
+      tdPreVal.textContent = r.preValue;
+      tdPreVal.className = "value-pre";
+      tr.appendChild(tdPreVal);
+
+      const tdStatus = document.createElement("td");
+      if (r.status === "EQUAL") {
+        tdStatus.textContent = "Equal";
+        tdStatus.className = "status-equal";
+      } else if (r.status === "DIFF") {
+        tdStatus.textContent = "Different";
+        tdStatus.className = "status-diff";
+      } else if (r.status === "MISSING_PRE") {
+        tdStatus.textContent = "Missing in Pre";
+        tdStatus.className = "status-missing-pre";
+      } else if (r.status === "MISSING_CUR") {
+        tdStatus.textContent = "Missing in Current";
+        tdStatus.className = "status-missing-cur";
+      } else {
+        tdStatus.textContent = r.status;
+      }
+      tr.appendChild(tdStatus);
+
+      const tdCurDn = document.createElement("td");
+      tdCurDn.textContent = r.curDistName;
+      tr.appendChild(tdCurDn);
+
+      const tdPreDn = document.createElement("td");
+      tdPreDn.textContent = r.preDistName;
+      tr.appendChild(tdPreDn);
+
+      resultBody.appendChild(tr);
+    });
+
+    downloadBtn.disabled = !filtered.length;
+  }
+
+  compareBtn.addEventListener("click", () => {
+    if (!curXmlText || !preXmlText) {
+      statusEl.textContent = "Both XML files must be loaded.";
+      return;
+    }
+
+    statusEl.textContent = "Comparing...";
+    setTimeout(() => {
+      const debugOut = { curMosCount: 0, preMosCount: 0, rowsTotal: 0, matchedCount: 0 };
+      allRows = compareXml(curXmlText, preXmlText, debugOut);
+
+      curMosCountEl.textContent = String(debugOut.curMosCount);
+      preMosCountEl.textContent = String(debugOut.preMosCount);
+      rowsTotalEl.textContent = String(debugOut.rowsTotal);
+      matchedCountEl.textContent = String(debugOut.matchedCount);
+
+      renderTable(allRows);
+      statusEl.textContent = "Comparison complete.";
+    }, 10);
+  });
+
+  showOnlyDiffEl.addEventListener("change", () => renderTable(allRows));
+  hideEqualEl.addEventListener("change", () => renderTable(allRows));
+  hideMissingPreEl.addEventListener("change", () => renderTable(allRows));
+  hideMissingCurEl.addEventListener("change", () => renderTable(allRows));
+
+  downloadBtn.addEventListener("click", () => {
+    const onlyDiff = showOnlyDiffEl.checked;
+    const hideEqual = hideEqualEl.checked;
+    const hideMissingPre = hideMissingPreEl.checked;
+    const hideMissingCur = hideMissingCurEl.checked;
+
+    const rows = allRows.filter(r => {
+      if (onlyDiff && r.status === "EQUAL") return false;
+      if (hideEqual && r.status === "EQUAL") return false;
+      if (hideMissingPre && r.status === "MISSING_PRE") return false;
+      if (hideMissingCur && r.status === "MISSING_CUR") return false;
+      return true;
+    });
+
+    const header = [
+      "Site","Class","Tag","GPL","Parameter",
+      "CurrentValue","PreValue","Status",
+      "CurrentDistName","PreDistName"
+    ];
+    const lines = [header];
+
+    rows.forEach(r => {
+      lines.push([
+        r.site,
+        r.simpleClass,
+        r.tag || "",
+        r.gpl ? "GPL" : "",
+        r.paramName,
+        r.curValue,
+        r.preValue,
+        r.status,
+        r.curDistName,
+        r.preDistName
+      ]);
+    });
+
+    const csv = lines
+      .map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(","))
+      .join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "nokia_xml_compare_tags_gpl.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  demoBtn.addEventListener("click", () => {
+    statusEl.textContent = "Demo loading is not wired to real files in this version.";
+  });
+</script>
+</body>
+</html>
